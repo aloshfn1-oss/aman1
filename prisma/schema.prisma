@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppRole {
+  admin
+  moderator
+  user
+}
+
+enum KycStatus {
+  none
+  pending
+  approved
+  rejected
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum Currency {
+  SYP
+  USD
+  USDT
+  GOLD
+}
+
+enum TxType {
+  deposit
+  withdraw
+  transfer_in
+  transfer_out
+  investment
+  profit
+  exchange
+  admin_credit
+  admin_debit
+  fee
+}
+
+enum TxStatus {
+  pending
+  completed
+  failed
+  cancelled
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+model User {
+  id        String     @id @default(uuid())
+  phone     String     @unique
+  email     String?    @unique
+  password  String?
+  publicId  String     @unique @default(cuid())
+  fullName  String?
+  avatarUrl String?
+  kycStatus KycStatus  @default(none)
+  status    UserStatus @default(active)
+  createdAt DateTime   @default(now())
+
+  roles         UserRole[]
+  wallets       Wallet[]
+  transactions  Transaction[]     @relation("UserTx")
+  counterTx     Transaction[]     @relation("CounterTx")
+  kyc           KycRequest[]
+  investments   Investment[]
+  deposits      DepositRequest[]
+  withdrawals   WithdrawRequest[]
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+}
+
+model UserRole {
+  id     String  @id @default(uuid())
+  userId String
+  role   AppRole
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String
+  currency  Currency
+  balance   Decimal  @default(0) @db.Decimal(20, 4)
+  locked    Decimal  @default(0) @db.Decimal(20, 4)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currency])
+}
+
+model Transaction {
+  id             String    @id @default(uuid())
+  userId         String
+  counterpartyId String?
+  type           TxType
+  amount         Decimal   @db.Decimal(20, 4)
+  currency       Currency
+  fee            Decimal   @default(0) @db.Decimal(20, 4)
+  status         TxStatus  @default(pending)
+  reference      String?   @unique
+  idempotencyKey String?   @unique
+  note           String?
+  metadata       Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  user         User          @relation("UserTx", fields: [userId], references: [id], onDelete: Cascade)
+  counterparty User?         @relation("CounterTx", fields: [counterpartyId], references: [id])
+  ledger       LedgerEntry[]
+
+  @@index([userId, createdAt])
+}
+
+model LedgerEntry {
+  id            String      @id @default(uuid())
+  transactionId String
+  account       String
+  debit         Decimal     @default(0) @db.Decimal(20, 4)
+  credit        Decimal     @default(0) @db.Decimal(20, 4)
+  currency      Currency
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([account])
+}
+
+model KycRequest {
+  id              String        @id @default(uuid())
+  userId          String
+  fullName        String
+  docType         String
+  docNumber       String?
+  docFrontUrl     String?
+  docBackUrl      String?
+  selfieUrl       String?
+  status          RequestStatus @default(pending)
+  reviewerId      String?
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  reviewedAt      DateTime?
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InvestmentPlan {
+  id           String       @id @default(uuid())
+  name         String
+  description  String?
+  profitRate   Decimal      @db.Decimal(8, 4)
+  profitType   String
+  duration     Int
+  durationUnit String
+  minAmount    Decimal      @db.Decimal(20, 4)
+  maxAmount    Decimal      @db.Decimal(20, 4)
+  risk         RiskLevel    @default(low)
+  badge        String?
+  featured     Boolean      @default(false)
+  enabled      Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  investments  Investment[]
+}
+
+model Investment {
+  id          String    @id @default(uuid())
+  userId      String
+  planId      String
+  amount      Decimal   @db.Decimal(20, 4)
+  currency    Currency  @default(USD)
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  totalProfit Decimal   @default(0) @db.Decimal(20, 4)
+  status      String    @default("active")
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan InvestmentPlan @relation(fields: [planId], references: [id])
+}
+
+model Agent {
+  id        String            @id @default(uuid())
+  code      String            @unique
+  name      String
+  city      String?
+  address   String?
+  phone     String?
+  rating    Decimal           @default(5) @db.Decimal(3, 2)
+  imageUrl  String?
+  enabled   Boolean           @default(true)
+  deposits  DepositRequest[]
+  withdraws WithdrawRequest[]
+}
+
+model DepositRequest {
+  id         String        @id @default(uuid())
+  userId     String
+  amount     Decimal       @db.Decimal(20, 4)
+  currency   Currency
+  method     String
+  receiptUrl String?
+  agentId    String?
+  status     RequestStatus @default(pending)
+  reviewerId String?
+  note       String?
+  createdAt  DateTime      @default(now())
+  reviewedAt DateTime?
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent      Agent?        @relation(fields: [agentId], references: [id])
+}
+
+model WithdrawRequest {
+  id          String        @id @default(uuid())
+  userId      String
+  amount      Decimal       @db.Decimal(20, 4)
+  currency    Currency
+  method      String
+  agentId     String?
+  destination Json          @default("{}")
+  status      RequestStatus @default(pending)
+  reviewerId  String?
+  note        String?
+  createdAt   DateTime      @default(now())
+  reviewedAt  DateTime?
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent       Agent?        @relation(fields: [agentId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  targetType String?
+  targetId   String?
+  details    Json     @default("{}")
+  createdAt  DateTime @default(now())
+}
