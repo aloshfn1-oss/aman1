@@ -1,20 +1,24 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
-
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npx prisma generate && npm run build
-
+# استخدام نسخة Node مستقرة تعتمد على Alpine
 FROM node:20-alpine
+
+# تثبيت المكتبات الضرورية لمحرك Prisma
+RUN apk add --no-cache openssl libc6-compat
+
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY package.json ./
+
+# نسخ ملفات الإعدادات وتثبيت المكتبات
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm install
+
+# نسخ بقية ملفات المشروع وبناء الكود
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+# كود NestJS عندك مبرمج على المنفذ 3000 أو 10000
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+
+# أمر التشغيل النهائي (يتضمن تحديث قاعدة البيانات وتشغيل السيرفر)
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
