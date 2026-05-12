@@ -18,6 +18,6 @@ async function bootstrap() {
 
 const port = process.env.PORT || 10000;
   await app.listen(port, '0.0.0.0');
-  new Logger('Bootstrap').log(API running on port: ${port})
+  new Logger('Bootstrap').log(API running on port: ${port});
 }
 bootstrap();
