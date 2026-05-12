@@ -10,8 +10,8 @@ async function bootstrap() {
   app.setGlobalPrefix('', { exclude: ['health'] });
 
   const cfg = new DocumentBuilder()
-    .setTitle('Aman API')
-    .setDescription('Wallet • Transfers • USDT • Gold • Investments • Admin')
+    .setTitle('Aman Bank API')
+    .setDescription('Core backend for Aman Bank')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -22,6 +22,6 @@ async function bootstrap() {
   const port = process.env.PORT || 10000;
   await app.listen(port, '0.0.0.0');
   
-  new Logger('Bootstrap').log(API running on port: ${port});
+  new Logger('Bootstrap').log(Server is running on port ${port});
 }
 bootstrap();
