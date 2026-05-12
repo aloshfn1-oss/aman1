@@ -22,6 +22,7 @@ async function bootstrap() {
   const port = process.env.PORT || 10000;
   await app.listen(port, '0.0.0.0');
   
-  new Logger('Bootstrap').log(Server is running on port ${port});
+  // لاحظ هنا مسحت علامة $ تماماً لتجنب الخطأ
+  new Logger('Bootstrap').log('Aman Bank Server started on port: ' + port);
 }
 bootstrap();
