@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm install --legacy-peer-deps && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/main.js
+    buildCommand: npm install --legacy-peer-deps && ./node_modules/.bin/prisma generate && npm run build
+    startCommand: ./node_modules/.bin/prisma migrate deploy && node dist/main.js
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
